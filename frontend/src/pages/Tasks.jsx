@@ -20,7 +20,7 @@ try {
 const token = localStorage.getItem("token");
 
   const response = await axios.get(
-    "http://127.0.0.1:5000/tasks",
+    "https://task-expense-tracker-9p53.onrender.com/tasks",
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -41,7 +41,7 @@ try {
 const token = localStorage.getItem("token");
 
   await axios.post(
-    "http://127.0.0.1:5000/tasks",
+    "https://task-expense-tracker-9p53.onrender.com/tasks",
     {
       title,
       description,
@@ -88,7 +88,7 @@ try {
   const token = localStorage.getItem("token");
 
   await axios.delete(
-    `http://127.0.0.1:5000/tasks/${taskId}`,
+    `https://task-expense-tracker-9p53.onrender.com/tasks/${taskId}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -114,7 +114,7 @@ try {
   const token = localStorage.getItem("token");
 
   await axios.put(
-    `http://127.0.0.1:5000/tasks/${taskId}`,
+    `https://task-expense-tracker-9p53.onrender.com/tasks/${taskId}`,
     {
       status: "Completed",
     },

@@ -22,7 +22,7 @@ function Dashboard() {
       const token = localStorage.getItem("token");
 
       const response = await axios.get(
-        "http://127.0.0.1:5000/dashboard",
+        "https://task-expense-tracker-9p53.onrender.com/dashboard",
         {
           headers: {
             Authorization: `Bearer ${token}`,

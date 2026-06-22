@@ -16,7 +16,7 @@ const handleRegister = async () => {
     try {
 
         await axios.post(
-            "http://127.0.0.1:5000/register",
+            "https://task-expense-tracker-9p53.onrender.com/register",
             {
                 name,
                 email,

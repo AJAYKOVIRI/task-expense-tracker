@@ -24,7 +24,7 @@ const loadStats = async () => {
         const token = localStorage.getItem("token");
 
         const response = await axios.get(
-            "http://127.0.0.1:5000/admin/dashboard",
+            "https://task-expense-tracker-9p53.onrender.com/admin/dashboard",
             {
                 headers: {
                     Authorization: `Bearer ${token}`
