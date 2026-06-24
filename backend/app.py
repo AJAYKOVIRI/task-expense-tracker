@@ -15,6 +15,7 @@ from flask_jwt_extended import (
 
 from flask_migrate import Migrate
 from datetime import datetime, timedelta
+from sqlalchemy import inspect, text
 
 app = Flask(__name__)
 CORS(app)
@@ -168,6 +169,45 @@ class Expense(db.Model):
         db.ForeignKey("user.id"),
         nullable=False
     )
+
+
+def ensure_database_schema():
+    with app.app_context():
+        db.create_all()
+
+        inspector = inspect(db.engine)
+
+        if inspector.has_table("task"):
+            task_columns = {
+                column["name"]
+                for column in inspector.get_columns("task")
+            }
+
+            task_missing_columns = {
+                "estimated_end_date": "ALTER TABLE task ADD COLUMN estimated_end_date VARCHAR(50)",
+                "created_date": "ALTER TABLE task ADD COLUMN created_date VARCHAR(50)",
+                "status_notes": "ALTER TABLE task ADD COLUMN status_notes VARCHAR(500)",
+            }
+
+            for column_name, statement in task_missing_columns.items():
+                if column_name not in task_columns:
+                    db.session.execute(text(statement))
+
+        if inspector.has_table("expense"):
+            expense_columns = {
+                column["name"]
+                for column in inspector.get_columns("expense")
+            }
+
+            if "created_date" not in expense_columns:
+                db.session.execute(
+                    text("ALTER TABLE expense ADD COLUMN created_date VARCHAR(50)")
+                )
+
+        db.session.commit()
+
+
+ensure_database_schema()
 
 
 # ==========================
