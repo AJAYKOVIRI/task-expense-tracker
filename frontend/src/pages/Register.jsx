@@ -10,8 +10,15 @@ const navigate = useNavigate();
 const [name, setName] = useState("");
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
+const [isLoading, setIsLoading] = useState(false);
 
 const handleRegister = async () => {
+    if (!name || !email || !password) {
+        toast.error("Name, email and password are required");
+        return;
+    }
+
+    setIsLoading(true);
 
     try {
 
@@ -35,6 +42,11 @@ const handleRegister = async () => {
 
         toast.error(error.response?.data?.error ||
             "Registration Failed");
+
+    }
+    finally {
+
+        setIsLoading(false);
 
     }
 
@@ -70,6 +82,7 @@ return (
                     type="text"
                     placeholder="Full Name"
                     value={name}
+                    disabled={isLoading}
                     onChange={(e) =>
                         setName(e.target.value)
                     }
@@ -88,6 +101,7 @@ return (
                     type="email"
                     placeholder="Email Address"
                     value={email}
+                    disabled={isLoading}
                     onChange={(e) =>
                         setEmail(e.target.value)
                     }
@@ -106,6 +120,7 @@ return (
                     type="password"
                     placeholder="Password"
                     value={password}
+                    disabled={isLoading}
                     onChange={(e) =>
                         setPassword(e.target.value)
                     }
@@ -122,18 +137,28 @@ return (
 
                 <button
                     onClick={handleRegister}
+                    disabled={isLoading}
                     className="
                     w-full
                     bg-blue-600
                     hover:bg-blue-700
+                    disabled:bg-blue-400
+                    disabled:cursor-not-allowed
                     text-white
                     py-3
                     rounded-xl
                     font-semibold
                     transition
+                    flex
+                    items-center
+                    justify-center
+                    gap-3
                     "
                 >
-                    Register
+                    {isLoading && (
+                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    )}
+                    {isLoading ? "Creating Account..." : "Register"}
                 </button>
 
             </div>

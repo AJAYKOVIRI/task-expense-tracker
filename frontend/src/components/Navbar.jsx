@@ -4,8 +4,6 @@ import { useState } from "react";
 function Navbar() {
   const role = localStorage.getItem("role");
 
-  const user = localStorage.getItem("user");
-
   const navigate = useNavigate();
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -14,12 +12,6 @@ function Navbar() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
-
-    navigate("/");
-  };
-
-  const logout = () => {
-    localStorage.removeItem("token");
 
     navigate("/");
   };

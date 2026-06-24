@@ -14,7 +14,7 @@ from flask_jwt_extended import (
 )
 
 from flask_migrate import Migrate
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -25,6 +25,26 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
+
+TASK_STATUSES = {
+    "Pending",
+    "In Progress",
+    "Completed",
+    "Blocked",
+    "On Hold"
+}
+
+
+def has_value(data, key):
+    value = data.get(key)
+    return value is not None and str(value).strip() != ""
+
+
+def is_valid_amount(value):
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
 
 # ==========================
 # User Model
@@ -91,6 +111,18 @@ class Task(db.Model):
         db.String(50)
     )
 
+    estimated_end_date = db.Column(
+        db.String(50)
+    )
+
+    created_date = db.Column(
+        db.String(50)
+    )
+
+    status_notes = db.Column(
+        db.String(500)
+    )
+
     user_id = db.Column(
         db.Integer,
         db.ForeignKey("user.id"),
@@ -125,6 +157,10 @@ class Expense(db.Model):
     date = db.Column(
         db.String(50),
         nullable=False
+    )
+
+    created_date = db.Column(
+        db.String(50)
     )
 
     user_id = db.Column(
@@ -450,14 +486,45 @@ def admin_dashboard():
 @jwt_required()
 def create_task():
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     current_user_id = get_jwt_identity()
 
+    if not has_value(data, "title"):
+        return jsonify({
+            "message": "Task title is required"
+        }), 400
+
+    if not has_value(data, "description"):
+        return jsonify({
+            "message": "Task description is required"
+        }), 400
+
+    estimated_end_date = (
+        data.get("estimated_end_date")
+        or data.get("due_date")
+    )
+
+    if estimated_end_date is None or str(estimated_end_date).strip() == "":
+        return jsonify({
+            "message": "Estimated end date is required"
+        }), 400
+
+    status = data.get("status", "Pending")
+
+    if status not in TASK_STATUSES:
+        return jsonify({
+            "message": "Invalid task status"
+        }), 400
+
     new_task = Task(
-        title=data["title"],
-        description=data["description"],
-        due_date=data["due_date"],
+        title=data["title"].strip(),
+        description=data["description"].strip(),
+        status=status,
+        due_date=str(estimated_end_date).strip(),
+        estimated_end_date=str(estimated_end_date).strip(),
+        created_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        status_notes=data.get("status_notes", "").strip(),
         user_id=int(current_user_id)
     )
 
@@ -466,7 +533,18 @@ def create_task():
     db.session.commit()
 
     return jsonify({
-        "message": "Task Created Successfully"
+        "message": "Task Created Successfully",
+        "task": {
+            "id": new_task.id,
+            "title": new_task.title,
+            "description": new_task.description,
+            "status": new_task.status,
+            "status_notes": new_task.status_notes,
+            "created_date": new_task.created_date,
+            "estimated_end_date": new_task.estimated_end_date,
+            "due_date": new_task.due_date,
+            "user_id": new_task.user_id
+        }
     }), 201
 
 # ==========================
@@ -476,7 +554,7 @@ def create_task():
 @jwt_required()
 def update_task(task_id):
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     current_user_id = get_jwt_identity()
 
@@ -499,12 +577,31 @@ def update_task(task_id):
             "message": "Access Denied"
         }), 403
 
-    task.status = data["status"]
+    status = data.get("status", task.status)
+
+    if status not in TASK_STATUSES:
+        return jsonify({
+            "message": "Invalid task status"
+        }), 400
+
+    task.status = status
+    task.status_notes = data.get("status_notes", task.status_notes or "").strip()
 
     db.session.commit()
 
     return jsonify({
-        "message": "Task Updated Successfully"
+        "message": "Task Updated Successfully",
+        "task": {
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status,
+            "status_notes": task.status_notes,
+            "created_date": task.created_date,
+            "estimated_end_date": task.estimated_end_date,
+            "due_date": task.due_date,
+            "user_id": task.user_id
+        }
     })
 
 
@@ -540,6 +637,9 @@ def get_tasks():
             "title": task.title,
             "description": task.description,
             "status": task.status,
+            "status_notes": task.status_notes or "",
+            "created_date": task.created_date or "Created before tracking was enabled",
+            "estimated_end_date": task.estimated_end_date or task.due_date,
             "due_date": task.due_date,
             "user_id": task.user_id
         })
@@ -591,15 +691,36 @@ def delete_task(task_id):
 @jwt_required()
 def create_expense():
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     current_user_id = get_jwt_identity()
 
+    if not has_value(data, "title"):
+        return jsonify({
+            "message": "Expense title is required"
+        }), 400
+
+    if not is_valid_amount(data.get("amount")):
+        return jsonify({
+            "message": "Amount must be greater than zero"
+        }), 400
+
+    if not has_value(data, "category"):
+        return jsonify({
+            "message": "Category is required"
+        }), 400
+
+    if not has_value(data, "date"):
+        return jsonify({
+            "message": "Expense date is required"
+        }), 400
+
     expense = Expense(
-        title=data["title"],
-        amount=data["amount"],
-        category=data["category"],
-        date=data["date"],
+        title=data["title"].strip(),
+        amount=float(data["amount"]),
+        category=data["category"].strip(),
+        date=str(data["date"]).strip(),
+        created_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         user_id=int(current_user_id)
     )
 
@@ -607,7 +728,16 @@ def create_expense():
     db.session.commit()
 
     return jsonify({
-        "message": "Expense Created Successfully"
+        "message": "Expense Created Successfully",
+        "expense": {
+            "id": expense.id,
+            "title": expense.title,
+            "amount": expense.amount,
+            "category": expense.category,
+            "date": expense.date,
+            "created_date": expense.created_date,
+            "user_id": expense.user_id
+        }
     }), 201
 
 
@@ -642,6 +772,7 @@ def get_expenses():
             "amount": expense.amount,
             "category": expense.category,
             "date": expense.date,
+            "created_date": expense.created_date or "Created before tracking was enabled",
             "user_id": expense.user_id
         })
 
@@ -655,7 +786,7 @@ def get_expenses():
 @jwt_required()
 def update_expense(expense_id):
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     current_user_id = get_jwt_identity()
 
@@ -678,15 +809,44 @@ def update_expense(expense_id):
             "message": "Access Denied"
         }), 403
 
-    expense.title = data["title"]
-    expense.amount = data["amount"]
-    expense.category = data["category"]
-    expense.date = data["date"]
+    if not has_value(data, "title"):
+        return jsonify({
+            "message": "Expense title is required"
+        }), 400
+
+    if not is_valid_amount(data.get("amount")):
+        return jsonify({
+            "message": "Amount must be greater than zero"
+        }), 400
+
+    if not has_value(data, "category"):
+        return jsonify({
+            "message": "Category is required"
+        }), 400
+
+    if not has_value(data, "date"):
+        return jsonify({
+            "message": "Expense date is required"
+        }), 400
+
+    expense.title = data["title"].strip()
+    expense.amount = float(data["amount"])
+    expense.category = data["category"].strip()
+    expense.date = str(data["date"]).strip()
 
     db.session.commit()
 
     return jsonify({
-        "message": "Expense Updated Successfully"
+        "message": "Expense Updated Successfully",
+        "expense": {
+            "id": expense.id,
+            "title": expense.title,
+            "amount": expense.amount,
+            "category": expense.category,
+            "date": expense.date,
+            "created_date": expense.created_date,
+            "user_id": expense.user_id
+        }
     })
 
 
